@@ -154,11 +154,11 @@ textarea{font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;width:100%;min-heig
   <p style="margin-top:12px"><label class="chk"><input id="p_loss" type="checkbox" data-k="noLossCredit"> Si un año hay pérdida, el impuesto es 0 <span class="hint">(el libro aplica el impuesto también sobre pérdidas)</span></label></p>
   <h3>Cargar un ejemplo</h3>
   <div class="row">
+    <button class="btn" data-load="clase">Ejercicio de clase (Excel corregido)</button>
     <button class="btn" data-load="agro">Palto y maíz (ejemplo agrícola)</button>
-    <button class="btn" data-load="clase">Ejercicio de clase (EJERCICIO)</button>
     <button class="btn" data-load="libro">Libro, Cuadros 3.1–3.7</button>
   </div>
-  <p class="hint" style="margin-top:8px">El ejemplo del libro debe dar VANE 483 158 y VANF 617 120; el de clase, VANE −72 355 y VANF 1 161 141. Sirven para comprobar los cálculos.</p>
+  <p class="hint" style="margin-top:8px">Valores de control. Ejercicio de clase: VANE −72 355, TIRE 19.92%, B/C 0.999, VANF 1 161 141, TIRF 21.60%, B/C financiera 1.022. Libro: VANE 483 158 y VANF 617 120.</p>
   <div id="confirmLoad" class="verdict mid" hidden></div>
   <h3>Copiar o pegar el proyecto</h3>
   <p class="hint">Para pasar el proyecto a otro equipo: copia el texto, envíatelo y pégalo allá.</p>
@@ -448,7 +448,7 @@ const EXAMPLES={
     loan:{on:true,amount:900000,rateNom:0.16,cap:4,years:6,inflation:0.025,useReal:true,grace:2,graceType:'parcial'}
   }),
   clase:()=>({
-    name:'Ejercicio de clase (martes 22)', N:5, Ko:0.20, t:0.30, cur:'S/', noLossCredit:false,
+    name:'Ejercicio de clase — martes 22 (Excel corregido)', N:5, Ko:0.20, t:0.30, cur:'S/', noLossCredit:false,
     assets:[
       {id:uid(),name:'Terreno',type:'terreno',cost:2000000,life:1,vr:0},
       {id:uid(),name:'Edificaciones',type:'depreciable',cost:10000000,life:80,vr:0.10},
@@ -476,10 +476,10 @@ const EXAMPLES={
 };
 
 /* ===== Estado ===== */
-const KEY='evaluador-agrario-v2';
+const KEY='evaluador-agrario-v3';
 let S;
 try{ S=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ S=null; }
-if(!S||!S.assets) S=EXAMPLES.agro();
+if(!S||!S.assets) S=EXAMPLES.clase();
 if(S.opStart==null)S.opStart=1; if(S.ctYear==null)S.ctYear=0; if(S.loan.grace==null){S.loan.grace=0;S.loan.graceType='parcial';} S.assets.forEach(a=>{if(a.year==null)a.year=0;});
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
 function fitManual(){ for(const k of ['Y','G']){ const a=S.manual[k]; while(a.length<S.N)a.push(a.length?a[a.length-1]:0); a.length=S.N; } }
