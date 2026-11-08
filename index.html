@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2E6A3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Evaluador Agrario</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: cuaderno de campo — cabecera fija con veredicto, formulario por secciones, barra de pestañas inferior en el celular */
+:root{
+  --bg:#F3F5EF; --surface:#FFFFFF; --sunk:#E8ECE2; --line:#D3D9CB;
+  --ink:#18241C; --muted:#5B6A5F;
+  --field:#2E6A3E; --field-ink:#FFFFFF; --maize:#B98512;
+  --good:#23824A; --bad:#B3402F; --warn:#9A6B00;
+  --good-bg:#E2F1E6; --bad-bg:#F7E3DF;
+  --display:"Barlow Condensed","Roboto Condensed","sans-serif-condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",Roboto,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111813; --surface:#19221B; --sunk:#0D130F; --line:#2C3A2F;
+  --ink:#E4EBE2; --muted:#9AAA9D; --field:#5FAE72; --field-ink:#0D140F; --maize:#E0B347;
+  --good:#6FCB8E; --bad:#EE8A78; --warn:#E0B347; --good-bg:#183224; --bad-bg:#3A1F1A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111813; --surface:#19221B; --sunk:#0D130F; --line:#2C3A2F;
+  --ink:#E4EBE2; --muted:#9AAA9D; --field:#5FAE72; --field-ink:#0D140F; --maize:#E0B347;
+  --good:#6FCB8E; --bad:#EE8A78; --warn:#E0B347; --good-bg:#183224; --bad-bg:#3A1F1A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--field)}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--field);color:var(--field-ink)}
+header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:12px;letter-spacing:0;text-transform:none;opacity:.85;margin-top:2px;max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.chip{font-family:var(--display);font-weight:600;font-size:14px;padding:4px 9px;border-radius:4px;background:rgba(255,255,255,.14);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip b{font-weight:700}
+.chip.ok{background:var(--good-bg);color:var(--good)} .chip.no{background:var(--bad-bg);color:var(--bad)}
+
+nav.tabs{display:flex;gap:2px}
+nav.tabs button{flex:1 1 auto;appearance:none;border:0;background:transparent;color:var(--muted);font-family:var(--display);font-weight:600;font-size:14.5px;letter-spacing:0;text-transform:none;padding:10px 2px;cursor:pointer;border-top:3px solid transparent}
+nav.tabs button[aria-selected="true"]{color:var(--field);border-top-color:var(--field)}
+nav.tabs button:focus-visible{outline:2px solid var(--maize);outline-offset:-2px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+main{padding-block:18px 96px}
+@media (min-width:820px){
+  .tabbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);bottom:auto;border-top:0;border-bottom:1px solid var(--line);z-index:15}
+  nav.tabs button{border-top:0;border-bottom:3px solid transparent;font-size:15px;letter-spacing:.04em;text-transform:uppercase}
+  nav.tabs button[aria-selected="true"]{border-bottom-color:var(--field)}
+  main{padding-block:22px 48px}
+}
+
+h2{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.01em;margin:0 0 4px;text-wrap:balance}
+h3{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.03em;text-transform:uppercase;margin:22px 0 10px;color:var(--muted)}
+p.lead{margin:0 0 16px;color:var(--muted);max-width:62ch}
+section[hidden]{display:none}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px}
+label.f{display:block;font-size:12.5px;font-weight:600;color:var(--muted);min-width:0}
+label.f > input,label.f > select{display:block;margin-top:4px}
+.grid{align-items:end}
+label.f span.u{font-weight:400}
+input,select{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:8px 9px;width:100%;min-width:0;font-variant-numeric:tabular-nums}
+input:focus,select:focus{outline:2px solid var(--field);outline-offset:0;border-color:var(--field)}
+label.chk{display:flex;align-items:center;gap:8px;font-weight:500;color:var(--ink);font-size:14px}
+label.chk input{width:auto}
+
+.item{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.item + .item{margin-top:10px}
+.item .hd{display:flex;align-items:center;gap:8px}
+.item .hd input{font-weight:600}
+.tag{font-family:var(--display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:3px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.note{font-size:12.5px;color:var(--muted)}
+.btn{appearance:none;font:inherit;font-weight:600;font-size:14px;border-radius:4px;padding:8px 12px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.pri{background:var(--field);color:var(--field-ink);border-color:var(--field)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:6px 8px}
+.btn:focus-visible{outline:2px solid var(--maize);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--surface);color:var(--muted);font:inherit;font-weight:600;font-size:14px;padding:8px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--field);color:var(--field-ink)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.kpi .l{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-family:var(--display);font-weight:700;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;font-weight:600}
+.kpi.ok .s{color:var(--good)} .kpi.no .s{color:var(--bad)}
+.verdict{border-radius:6px;padding:12px 14px;margin-bottom:14px;font-weight:500}
+.verdict.ok{background:var(--good-bg);color:var(--good)} .verdict.no{background:var(--bad-bg);color:var(--bad)} .verdict.mid{background:var(--sunk);color:var(--warn)}
+.verdict b{font-family:var(--display);font-size:18px;letter-spacing:.02em}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+thead th{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--muted);background:var(--sunk)}
+thead th:first-child{background:var(--sunk)}
+tr.tot td{font-weight:600;background:var(--sunk)}
+tr.tot td:first-child{background:var(--sunk)}
+td.neg{color:var(--bad)}
+.manual td input{width:130px;padding:5px 7px;font-size:14px;text-align:right}
+
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);padding:4px 6px 2px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+.sl{display:grid;grid-template-columns:110px 1fr 54px;gap:10px;align-items:center;font-size:14px}
+.sl input[type=range]{padding:0;border:0;background:transparent;accent-color:var(--field)}
+.sl output{font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+.cols{display:grid;gap:14px}
+@media (min-width:820px){.cols{grid-template-columns:1fr 1fr}}
+textarea{font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;width:100%;min-height:90px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);padding:8px}
+.hint{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.kpi .v,.chip{transition:color .2s}}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap">
+  <div class="brand">Evaluador Agrario<small id="hdrName">Proyecto</small></div>
+  <div class="chips" id="chips"></div>
+</div></header>
+
+<div class="tabbar"><div class="wrap" style="padding-left:0;padding-right:0"><nav class="tabs" role="tablist" id="tabs">
+  <button role="tab" data-tab="proyecto" aria-selected="true">Proyecto</button>
+  <button role="tab" data-tab="inversion" aria-selected="false">Inversión</button>
+  <button role="tab" data-tab="operacion" aria-selected="false">Operación</button>
+  <button role="tab" data-tab="prestamo" aria-selected="false">Préstamo</button>
+  <button role="tab" data-tab="resultados" aria-selected="false">Resultados</button>
+</nav></div></div>
+
+<main class="wrap">
+
+<section id="tab-proyecto">
+  <h2>Datos del proyecto</h2>
+  <p class="lead">Horizonte, costo de oportunidad e impuesto, según el método del libro <i>Evaluación Privada de Proyectos de Inversión</i> (Galíndez). Cada dato se ingresa una sola vez y todo lo demás se calcula. Los cambios se guardan en este navegador.</p>
+  <div class="grid">
+    <label class="f" style="grid-column:1/-1">Nombre del proyecto<input id="p_name" data-k="name" type="text"></label>
+    <label class="f">Horizonte <span class="u">(años)</span><input id="p_N" data-k="N" type="number" min="2" max="30" step="1" inputmode="numeric"></label>
+    <label class="f">Costo de oportunidad Ko <span class="u">(%)</span><input id="p_Ko" data-k="Ko" data-pct="1" type="number" step="0.1" inputmode="decimal"></label>
+    <label class="f">Impuesto a la renta <span class="u">(%)</span><input id="p_t" data-k="t" data-pct="1" type="number" step="0.5" inputmode="decimal"></label>
+    <label class="f">Inicio de operaciones <span class="u">(año)</span><input id="p_op" data-k="opStart" type="number" min="1" step="1" inputmode="numeric"></label>
+    <label class="f">Moneda<input id="p_cur" data-k="cur" type="text" maxlength="6"></label>
+  </div>
+  <p class="hint" id="horizonHint" style="margin-top:8px"></p>
+  <p style="margin-top:12px"><label class="chk"><input id="p_loss" type="checkbox" data-k="noLossCredit"> Si un año hay pérdida, el impuesto es 0 <span class="hint">(el libro aplica el impuesto también sobre pérdidas)</span></label></p>
+  <h3>Cargar un ejemplo</h3>
+  <div class="row">
+    <button class="btn" data-load="agro">Palto y maíz (ejemplo agrícola)</button>
+    <button class="btn" data-load="clase">Ejercicio de clase (EJERCICIO)</button>
+    <button class="btn" data-load="libro">Libro, Cuadros 3.1–3.7</button>
+  </div>
+  <p class="hint" style="margin-top:8px">El ejemplo del libro debe dar VANE 483 158 y VANF 617 120; el de clase, VANE −72 355 y VANF 1 161 141. Sirven para comprobar los cálculos.</p>
+  <div id="confirmLoad" class="verdict mid" hidden></div>
+  <h3>Copiar o pegar el proyecto</h3>
+  <p class="hint">Para pasar el proyecto a otro equipo: copia el texto, envíatelo y pégalo allá.</p>
+  <div class="row" style="margin:6px 0"><button class="btn" id="btnCopy">Copiar proyecto</button><button class="btn" id="btnPaste">Cargar texto pegado</button><span class="hint" id="copyMsg"></span></div>
+  <textarea id="jsonBox" placeholder="Pega aquí el texto de un proyecto copiado"></textarea>
+</section>
+
+<section id="tab-inversion" hidden>
+  <h2>Inversión</h2>
+  <p class="lead">Cronograma de inversiones (Cuadro 1.11). Cada activo se deprecia en línea recta desde el año en que empiezan las operaciones, o desde el año siguiente a su desembolso si es posterior. Valor de recupero = costo − años depreciados × depreciación (p. 76–77). El terreno y el capital de trabajo se recuperan al 100%; los intangibles se amortizan sin recupero.</p>
+  <div id="assets"></div>
+  <div class="row" style="margin-top:10px"><button class="btn" id="addAsset">+ Agregar activo</button></div>
+  <h3>Capital de trabajo</h3>
+  <div class="grid">
+    <label class="f">Monto <span class="u" data-cur></span><input id="ct" data-k="ct" type="number" step="1000" inputmode="decimal"></label>
+    <label class="f">Año de desembolso<input id="ctYear" data-k="ctYear" type="number" min="0" step="1" inputmode="numeric"></label>
+    <label class="f">Se recupera al final <span class="u">(%)</span><input id="ctRec" data-k="ctRec" data-pct="1" type="number" step="5" inputmode="decimal"></label>
+  </div>
+  <p class="hint" style="margin-top:6px">El libro (p. 56–57) recupera el 100% del capital de trabajo en el último año.</p>
+</section>
+
+<section id="tab-operacion" hidden>
+  <h2>Operación</h2>
+  <p class="lead">Ingresos y egresos de cada año. Puedes calcularlos a partir de los cultivos o ingresarlos directamente, como en el Excel.</p>
+  <div class="seg" role="group" aria-label="Modo de operación">
+    <button data-mode="cultivos" aria-pressed="true">Por cultivos</button>
+    <button data-mode="manual" aria-pressed="false">Ingreso manual</button>
+  </div>
+  <div id="opCultivos">
+    <h3>Cultivos</h3>
+    <div id="crops"></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="addCrop">+ Agregar cultivo</button></div>
+    <h3>Agua de riego</h3>
+    <p class="hint" style="margin:0 0 8px">Volumen por ha = módulo × segundos de riego ÷ eficiencia. Se cobra sobre el área total de cultivos (por campaña en los anuales).</p>
+    <label class="chk" style="margin-bottom:10px"><input id="w_on" type="checkbox" data-k="water.on"> Incluir costo de agua</label>
+    <div class="grid" id="waterGrid">
+      <label class="f">Módulo de riego <span class="u">(l/s/ha)</span><input id="w_mod" data-k="water.modulo" type="number" step="0.05" inputmode="decimal"></label>
+      <label class="f">Meses de riego al año<input id="w_mes" data-k="water.meses" type="number" step="1" inputmode="decimal"></label>
+      <label class="f">Eficiencia de riego <span class="u">(%)</span><input id="w_ef" data-k="water.ef" data-pct="1" type="number" step="1" inputmode="decimal"></label>
+      <label class="f">Tarifa <span class="u" data-cur-m3></span><input id="w_tar" data-k="water.tarifa" type="number" step="0.001" inputmode="decimal"></label>
+    </div>
+    <p class="hint" id="waterInfo"></p>
+    <h3>Otros egresos fijos anuales</h3>
+    <div id="fixed"></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="addFixed">+ Agregar egreso fijo</button></div>
+    <h3>Resumen por año</h3>
+    <div class="tbl" id="opSummary"></div>
+  </div>
+  <div id="opManual" hidden>
+    <h3>Ingresos y egresos por año</h3>
+    <p class="hint" style="margin:0 0 8px">Egresos sin depreciación, en positivo.</p>
+    <div class="tbl manual" id="manualTbl"></div>
+  </div>
+</section>
+
+<section id="tab-prestamo" hidden>
+  <h2>Préstamo</h2>
+  <p class="lead">Cuadro de servicio de la deuda con cuota constante (anualidad), como en el Cuadro 3.5. El interés se resta antes del impuesto y por eso genera escudo fiscal; la amortización se resta después.</p>
+  <label class="chk" style="margin-bottom:12px"><input id="l_on" type="checkbox" data-k="loan.on"> Evaluar con préstamo</label>
+  <div class="grid" id="loanGrid">
+    <label class="f">Monto <span class="u" data-cur></span><input id="l_amt" data-k="loan.amount" type="number" step="1000" inputmode="decimal"></label>
+    <label class="f">Tasa nominal anual <span class="u">(%)</span><input id="l_rate" data-k="loan.rateNom" data-pct="1" type="number" step="0.1" inputmode="decimal"></label>
+    <label class="f">Capitalizaciones al año<select id="l_cap" data-k="loan.cap"><option value="1">1 (anual)</option><option value="2">2 (semestral)</option><option value="4">4 (trimestral)</option><option value="12">12 (mensual)</option><option value="360">360 (diaria)</option></select></label>
+    <label class="f">Plazo <span class="u">(años)</span><input id="l_yrs" data-k="loan.years" type="number" min="1" step="1" inputmode="numeric"></label>
+    <label class="f">Inflación anual <span class="u">(%)</span><input id="l_inf" data-k="loan.inflation" data-pct="1" type="number" step="0.1" inputmode="decimal"></label>
+  </div>
+  <p style="margin-top:12px"><label class="chk"><input id="l_real" type="checkbox" data-k="loan.useReal"> Usar tasa real: i<sub>r</sub> = (i<sub>ef</sub> − φ) ÷ (1 + φ), como en el Cuadro 3.5 del libro</label></p>
+  <h3>Periodo de gracia</h3>
+  <p class="hint" style="margin:0 0 8px">No figura en el libro; es frecuente en créditos agrarios para perennes. Con 0 años se aplica exactamente el método del libro.</p>
+  <div class="grid">
+    <label class="f">Años de gracia <span class="u">(dentro del plazo)</span><input id="l_gr" data-k="loan.grace" type="number" min="0" step="1" inputmode="numeric"></label>
+    <label class="f">Tipo de gracia<select id="l_gt" data-k="loan.graceType"><option value="parcial">Parcial: paga solo intereses</option><option value="total">Total: los intereses se capitalizan</option></select></label>
+  </div>
+  <div class="kpis" id="loanKpis" style="margin-top:12px"></div>
+  <h3>Servicio de la deuda</h3>
+  <div class="tbl" id="debtTbl"></div>
+</section>
+
+<section id="tab-resultados" hidden>
+  <h2>Resultados</h2>
+  <div id="verdict"></div>
+  <h3>Evaluación económica</h3>
+  <div class="kpis" id="kpiE"></div>
+  <h3 id="hFin">Evaluación financiera</h3>
+  <div class="kpis" id="kpiF"></div>
+  <h3>VAN según la tasa de descuento</h3>
+  <div class="chart"><div id="chart"></div><div class="legend" id="legend"></div></div>
+  <h3>Sensibilidad (cap. 3.5)</h3>
+  <p class="hint" style="margin:0 0 8px">Mueve una o varias variables y observa el efecto. Debajo están los valores críticos, que dicen cuánto puede cambiar cada variable antes de que el VAN llegue a 0, y los escenarios.</p>
+  <div class="cols">
+    <div class="item">
+      <div class="sl"><span>Ingresos</span><input type="range" id="s_y" min="-40" max="40" step="5" value="0"><output id="o_y">0%</output></div>
+      <div class="sl"><span>Egresos</span><input type="range" id="s_g" min="-40" max="40" step="5" value="0"><output id="o_g">0%</output></div>
+      <div class="sl"><span>Inversión</span><input type="range" id="s_i" min="-40" max="40" step="5" value="0"><output id="o_i">0%</output></div>
+      <div class="kpis" id="kpiS"></div>
+      <div class="row"><button class="btn ghost" id="sReset">Volver a 0%</button></div>
+    </div>
+    <div class="tbl" id="sensTbl"></div>
+  </div>
+  <div class="cols" style="margin-top:14px">
+    <div class="tbl" id="critTbl"></div>
+    <div class="tbl" id="scenTbl"></div>
+  </div>
+  <h3>Flujo de caja económico</h3>
+  <div class="tbl" id="fcE"></div>
+  <h3 id="hFcF">Flujo de caja financiero</h3>
+  <div class="tbl" id="fcF"></div>
+  <h3>Depreciación y valores de recupero</h3>
+  <div class="tbl" id="depTbl"></div>
+  <h3>Supuestos</h3>
+  <ul class="note" style="padding-left:18px;max-width:70ch">
+    <li>Flujo neto de operación económico = (Y − G)(1 − t) + D·t; financiero = (Y − G − I)(1 − t) + D·t − amortización.</li>
+    <li>B/C = VA(ingresos + recuperos) ÷ [inversión + VA(egresos + impuesto)], como en el libro. En la financiera se suman intereses y amortización, y la inversión es solo el aporte propio.</li>
+    <li>IR = 1 + VAN ÷ VA de las inversiones (igual a VA de flujos ÷ inversión cuando todo se invierte en el año 0).</li>
+    <li>TER (p. 99): las inversiones se llevan a valor presente y las recuperaciones a valor futuro, ambas a Ko; la TER iguala esas dos cantidades.</li>
+    <li>IEA (p. 93) = VAN × i(1+i)ⁿ ÷ [(1+i)ⁿ − 1]. Sirve para comparar proyectos mutuamente excluyentes.</li>
+    <li>Punto de Fisher: tasa a la que VANE = VANF. Equivale al costo de la deuda después de impuestos.</li>
+    <li>Periodo de recupero: VAN acumulado interpolado entre el último año negativo y el primero positivo.</li>
+    <li>Si la vida útil de un activo es menor que el horizonte, se deprecia por completo y no se repone.</li>
+    <li>En el modo por cultivos, ingresos y egresos empiezan en el año de inicio de operaciones. En el modo manual se toman tal como se ingresan.</li>
+  </ul>
+</section>
+</main>
+
+<script id="engine">
+/* ===== Motor de cálculo (funciones puras) — método Galíndez ===== */
+function npv(r, cf){ let s=0; for(let i=0;i<cf.length;i++) s+=cf[i]/Math.pow(1+r,i); return s; }
+function irr(cf){
+  const f=r=>npv(r,cf); let prev=-0.95, fp=f(prev);
+  for(let r=-0.9;r<=10.0001;r+=0.05){
+    const fr=f(r);
+    if(isFinite(fp)&&isFinite(fr)&&fp*fr<=0&&!(fp===0&&fr===0)){
+      let lo=prev,hi=r,flo=fp;
+      for(let k=0;k<100;k++){const m=(lo+hi)/2,fm=f(m); if(flo*fm<=0){hi=m}else{lo=m;flo=fm}}
+      return (lo+hi)/2;
+    }
+    prev=r; fp=fr;
+  }
+  return NaN;
+}
+/* Periodo de recupero (Cuadro 3.4): VAN acumulado, interpolado en el último cruce de negativo a positivo */
+function payback(r, cf){
+  let cum=0, prev=0, pr=NaN;
+  for(let k=0;k<cf.length;k++){
+    prev=cum; cum+=cf[k]/Math.pow(1+r,k);
+    if(k>0 && prev<0 && cum>=0) pr=(k-1)+(-prev)/(cum-prev);
+    if(cum<0) pr=NaN;
+  }
+  return pr;
+}
+/* TER (p. 99): inversiones (flujos negativos) a valor presente y recuperaciones (positivos) a valor futuro, ambos a la tasa externa e */
+function ter(cf, e){
+  const N=cf.length-1; let pv=0, fv=0;
+  cf.forEach((c,k)=>{ if(c<0) pv+=-c/Math.pow(1+e,k); else fv+=c*Math.pow(1+e,N-k); });
+  return pv>0?Math.pow(fv/pv,1/N)-1:NaN;
+}
+/* IEA (p. 93): VAN distribuido como anualidad en el horizonte */
+function iea(van, r, N){ return r===0?van/N:van*r*Math.pow(1+r,N)/(Math.pow(1+r,N)-1); }
+function cropYieldFactor(c,k){
+  if(k<1) return 0;
+  if(c.kind!=='perenne') return 1;
+  const np=Math.max(0,+c.yearsNoProd||0), full=Math.max(np+1,+c.yearsToFull||np+1);
+  if(k<=np) return 0;
+  return Math.min(1,(k-np)/(full-np));
+}
+function waterVolPerHa(w){ return (+w.modulo||0)/1000*86400*30*(+w.meses||0)/Math.max(0.01,(+w.ef||1)); }
+function operations(s){
+  const N=s.N, Y=new Array(N).fill(0), G=new Array(N).fill(0), byCrop=[];
+  const water=new Array(N).fill(0), fixed=new Array(N).fill(0);
+  if(s.opMode==='manual'){
+    for(let k=0;k<N;k++){Y[k]=+(s.manual.Y[k]||0); G[k]=+(s.manual.G[k]||0);}
+    return {Y,G,byCrop,water,fixed};
+  }
+  const op0=Math.max(1,Math.round(+s.opStart||1)), vol=waterVolPerHa(s.water);
+  for(const c of s.crops){
+    const row={name:c.name,unit:c.unit||'t',prod:[],y:[],g:[]};
+    const camp=c.kind==='anual'?Math.max(1,+c.campaigns||1):1;
+    for(let k=1;k<=N;k++){
+      const ko=k-op0+1, active=ko>=1;
+      const f=cropYieldFactor(c,ko);
+      const prod=active?(+c.area||0)*(+c.yield||0)*f*camp:0;
+      const y=prod*(+c.price||0);
+      const g=active?(+c.area||0)*(+c.costHa||0)*camp*(f===0?(+c.costNoProd||0):1):0;
+      row.prod.push(prod); row.y.push(y); row.g.push(g);
+      Y[k-1]+=y; G[k-1]+=g;
+      if(active&&s.water.on) water[k-1]+=vol*(+c.area||0)*camp*(+s.water.tarifa||0);
+    }
+    byCrop.push(row);
+  }
+  const fx=s.fixedCosts.reduce((a,b)=>a+(+b.amount||0),0);
+  for(let k=0;k<N;k++){ if(k+1>=op0) fixed[k]=fx; G[k]+=water[k]+fixed[k]; }
+  return {Y,G,byCrop,water,fixed};
+}
+/* Servicio de la deuda (Cuadro 3.5): cuota constante; periodo de gracia opcional (no figura en el libro) */
+function loanTable(s){
+  const L=s.loan, out={on:!!L.on&&(+L.amount>0), rows:[], ieff:0, i:0, A:0};
+  const m=Math.max(1,+L.cap||1); out.ieff=Math.pow(1+(+L.rateNom||0)/m,m)-1;
+  out.i=L.useReal?(out.ieff-(+L.inflation||0))/(1+(+L.inflation||0)):out.ieff;
+  const n=Math.max(1,Math.round(+L.years||1)), g=Math.max(0,Math.min(n-1,Math.round(+L.grace||0))), i=out.i;
+  let bal=+L.amount||0;
+  for(let k=1;k<=g;k++){
+    const int=bal*i;
+    if(L.graceType==='total'){ out.rows.push({k,ini:bal,int,am:-int,A:0,fin:bal+int,paid:0,grace:true}); bal+=int; }
+    else { out.rows.push({k,ini:bal,int,am:0,A:int,fin:bal,paid:int,grace:true}); }
+  }
+  const na=n-g; const A=i===0?bal/na:bal*Math.pow(1+i,na)*i/(Math.pow(1+i,na)-1); out.A=A;
+  for(let k=g+1;k<=n;k++){const int=bal*i, am=A-int; out.rows.push({k,ini:bal,int,am,A,fin:bal-am,paid:A}); bal-=am;}
+  out.n=n; out.g=g; return out;
+}
+function evaluate(s, mult){
+  mult=mult||{y:1,g:1,i:1};
+  const N=s.N, t=s.t, r=s.Ko, op0=Math.max(1,Math.round(+s.opStart||1));
+  const op=operations(s);
+  const Y=op.Y.map(v=>v*mult.y), G=op.G.map(v=>v*mult.g);
+  const capE=new Array(N+1).fill(0), D=new Array(N).fill(0), dep=[]; let rec=0, invTot=0;
+  for(const a of s.assets){
+    const cost=(+a.cost||0)*mult.i, yr=Math.max(0,Math.min(N-1,Math.round(+a.year||0)));
+    capE[yr]-=cost; invTot+=cost;
+    const life=Math.max(1,+a.life||1), start=Math.max(yr+1,op0);
+    let d=0, yrs=0, vr=0;
+    if(a.type==='terreno'){ vr=cost; }
+    else { d=a.type==='intangible'?cost/life:cost*(1-(+a.vr||0))/life; yrs=Math.max(0,Math.min(life,N-start+1)); vr=a.type==='intangible'?0:cost-d*yrs; }
+    for(let k=start;k<start+yrs;k++) D[k-1]+=d;
+    rec+=vr; dep.push({name:a.name,type:a.type,cost,yr,start,d,yrs,vr});
+  }
+  const ct=(+s.ct||0)*mult.i, ctYr=Math.max(0,Math.min(N-1,Math.round(+s.ctYear||0))), ctRec=ct*(s.ctRec==null?1:+s.ctRec);
+  capE[ctYr]-=ct; invTot+=ct; rec+=ctRec; capE[N]+=rec;
+  const pvInv=npv(r,capE.map((v,k)=>k<N?-v:0)); // VA de las inversiones (cronograma)
+  const tax=u=>s.noLossCredit?Math.max(0,u*t):u*t;
+  const U=[],T=[],FNO=[];
+  for(let k=0;k<N;k++){U[k]=Y[k]-G[k]-D[k]; T[k]=tax(U[k]); FNO[k]=U[k]-T[k]+D[k];}
+  const FE=capE.map((v,k)=>v+(k>0?FNO[k-1]:0));
+  const pvB=npv(r,[0,...Y.map((v,k)=>v+(k===N-1?rec:0))]);
+  const pvCE=pvInv+npv(r,[0,...Y.map((v,k)=>v-FNO[k])]);
+  const e=s.terRate==null||s.terRate===''?r:+s.terRate;
+  const vanE=npv(r,FE);
+  const econ={flow:FE,van:vanE,tir:irr(FE),bc:pvB/pvCE,ir:1+vanE/pvInv,pr:payback(r,FE),ter:ter(FE,e),iea:iea(vanE,r,N),pvB,pvC:pvCE};
+  const loan=loanTable(s); let fin=null; const I=new Array(N).fill(0),AM=new Array(N).fill(0);
+  if(loan.on){
+    loan.rows.forEach(rw=>{ if(rw.k<=N){I[rw.k-1]=rw.grace&&s.loan.graceType==='total'?0:rw.int; AM[rw.k-1]=rw.grace?0:rw.am;} });
+    const P=+s.loan.amount; const capF=capE.slice(); capF[0]+=P;
+    const UF=[],TF=[],FNOF=[];
+    for(let k=0;k<N;k++){UF[k]=Y[k]-G[k]-D[k]-I[k]; TF[k]=tax(UF[k]); FNOF[k]=UF[k]-TF[k]+D[k]-AM[k];}
+    const FF=capF.map((v,k)=>v+(k>0?FNOF[k-1]:0));
+    const eq=pvInv-P;
+    const pvCF=eq+npv(r,[0,...Y.map((v,k)=>v-FNOF[k])]);
+    const vanF=npv(r,FF);
+    const diff=FE.map((v,k)=>v-FF[k]);
+    fin={flow:FF,cap:capF,UF,TF,FNOF,I,AM,van:vanF,tir:irr(FF),bc:pvB/pvCF,ir:eq>0?1+vanF/eq:NaN,pr:payback(r,FF),ter:ter(FF,e),iea:iea(vanF,r,N),eq,pvC:pvCF,fisher:irr(diff)};
+  }
+  return {N,Y,G,D,U,T,FNO,capE,invTot,pvInv,rec,ct,ctYr,ctRec,dep,econ,fin,loan,op,op0};
+}
+/* Valor crítico: cambio % de una variable que lleva el VAN a 0 (cap. 3.5) */
+function critical(s, key, which){
+  const f=m=>{const mm={y:1,g:1,i:1}; mm[key]=m; const R=evaluate(s,mm); const o=which==='F'?R.fin:R.econ; return o?o.van:NaN;};
+  const base=f(1); if(!isFinite(base)) return NaN;
+  let lo=1, hi=1, step=0.05, flo=base;
+  const dir=(key==='y')===(base>0)?-1:1;
+  for(let k=0;k<200;k++){ hi=1+dir*step*(k+1); if(hi<=0) return NaN; const fh=f(hi); if(fh*base<=0){ lo=1+dir*step*k; flo=f(lo); break;} if(k===199) return NaN; }
+  for(let k=0;k<80;k++){const m=(lo+hi)/2,fm=f(m); if(fm*flo<=0){hi=m}else{lo=m;flo=fm}}
+  return (lo+hi)/2-1;
+}
+</script>
+
+<script>
+/* ===== Ejemplos ===== */
+const uid=()=>Math.random().toString(36).slice(2,9);
+const EXAMPLES={
+  agro:()=>({
+    name:'Palto Hass y maíz — 20 ha (ejemplo)', N:15, Ko:0.14, t:0.295, cur:'S/', noLossCredit:false, opStart:1, terRate:null,
+    assets:[
+      {id:uid(),name:'Terreno agrícola (20 ha)',type:'terreno',cost:700000,life:1,vr:0,year:0},
+      {id:uid(),name:'Reservorio y caseta de bombeo',type:'depreciable',cost:280000,life:50,vr:0.10,year:0},
+      {id:uid(),name:'Sistema de riego por goteo',type:'depreciable',cost:420000,life:15,vr:0.10,year:0},
+      {id:uid(),name:'Instalación de plantación de palto (15 ha)',type:'depreciable',cost:390000,life:25,vr:0,year:0},
+      {id:uid(),name:'Tractor e implementos',type:'depreciable',cost:260000,life:10,vr:0.10,year:1},
+      {id:uid(),name:'Estudios y expediente técnico',type:'intangible',cost:45000,life:4,vr:0,year:0}
+    ],
+    ct:180000, ctYear:0, ctRec:1, opMode:'cultivos',
+    crops:[
+      {id:uid(),name:'Palto Hass',kind:'perenne',area:15,yield:16,price:5800,costHa:17500,yearsNoProd:2,yearsToFull:7,costNoProd:0.45,campaigns:1,unit:'t'},
+      {id:uid(),name:'Maíz amarillo duro',kind:'anual',area:5,yield:9,price:1150,costHa:6800,campaigns:2,yearsNoProd:0,yearsToFull:1,costNoProd:1,unit:'t'}
+    ],
+    water:{on:true,modulo:0.7,meses:12,ef:0.85,tarifa:0.02},
+    fixedCosts:[{id:uid(),name:'Administración y asistencia técnica',amount:72000},{id:uid(),name:'Seguro agrícola',amount:9000}],
+    manual:{Y:[],G:[]},
+    loan:{on:true,amount:900000,rateNom:0.16,cap:4,years:6,inflation:0.025,useReal:true,grace:2,graceType:'parcial'}
+  }),
+  clase:()=>({
+    name:'Ejercicio de clase (martes 22)', N:5, Ko:0.20, t:0.30, cur:'S/', noLossCredit:false,
+    assets:[
+      {id:uid(),name:'Terreno',type:'terreno',cost:2000000,life:1,vr:0},
+      {id:uid(),name:'Edificaciones',type:'depreciable',cost:10000000,life:80,vr:0.10},
+      {id:uid(),name:'Instalaciones',type:'depreciable',cost:1500000,life:20,vr:0.10},
+      {id:uid(),name:'Maquinaria y equipo',type:'depreciable',cost:15000000,life:10,vr:0.10},
+      {id:uid(),name:'Intangibles',type:'intangible',cost:500000,life:4,vr:0}
+    ],
+    ct:2000000, ctRec:1, opMode:'manual', crops:[], water:{on:false,modulo:1,meses:6,ef:0.6,tarifa:0.08}, fixedCosts:[],
+    manual:{Y:[7000000,12000000,16000000,22000000,28000000],G:[800000,2500000,6000000,10000000,14000000]},
+    loan:{on:true,amount:10000000,rateNom:0.18,cap:4,years:4,inflation:0,useReal:false,grace:0,graceType:'parcial'}, opStart:1, ctYear:0
+  }),
+  libro:()=>({
+    name:'Libro Galíndez — Cuadros 3.1 a 3.7', N:5, Ko:0.20, t:0.30, cur:'US$', noLossCredit:false,
+    assets:[
+      {id:uid(),name:'Terreno',type:'terreno',cost:100000,life:1,vr:0},
+      {id:uid(),name:'Edificaciones',type:'depreciable',cost:300000,life:50,vr:0.10},
+      {id:uid(),name:'Maquinaria y equipo',type:'depreciable',cost:400000,life:10,vr:0.10},
+      {id:uid(),name:'Instalaciones',type:'depreciable',cost:120000,life:10,vr:0},
+      {id:uid(),name:'Intangibles (estudios)',type:'intangible',cost:80000,life:4,vr:0}
+    ],
+    ct:60000, ctRec:1, opMode:'manual', crops:[], water:{on:false,modulo:1,meses:6,ef:0.6,tarifa:0.08}, fixedCosts:[],
+    manual:{Y:[600000,900000,1300000,1500000,1500000],G:[200000,400000,600000,800000,800000]},
+    loan:{on:true,amount:800000,rateNom:0.18,cap:4,years:4,inflation:0.03,useReal:true,grace:0,graceType:'parcial'}, opStart:1, ctYear:0
+  })
+};
+
+/* ===== Estado ===== */
+const KEY='evaluador-agrario-v2';
+let S;
+try{ S=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ S=null; }
+if(!S||!S.assets) S=EXAMPLES.agro();
+if(S.opStart==null)S.opStart=1; if(S.ctYear==null)S.ctYear=0; if(S.loan.grace==null){S.loan.grace=0;S.loan.graceType='parcial';} S.assets.forEach(a=>{if(a.year==null)a.year=0;});
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+function fitManual(){ for(const k of ['Y','G']){ const a=S.manual[k]; while(a.length<S.N)a.push(a.length?a[a.length-1]:0); a.length=S.N; } }
+
+/* ===== Utilidades ===== */
+const $=id=>document.getElementById(id);
+const nf0=new Intl.NumberFormat('es-PE',{maximumFractionDigits:0});
+const fm=v=>isFinite(v)?nf0.format(Math.round(v)):'—';
+const fp=v=>isFinite(v)?(v*100).toFixed(2)+'%':'—';
+const f4=v=>isFinite(v)?v.toFixed(3):'—';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function getP(o,p){return p.split('.').reduce((a,k)=>a==null?a:a[k],o)}
+function setP(o,p,v){const ks=p.split('.');let x=o;for(let i=0;i<ks.length-1;i++)x=x[ks[i]];x[ks[ks.length-1]]=v}
+
+/* ===== Formularios ===== */
+function bindStatic(){
+  document.querySelectorAll('[data-k]').forEach(el=>{
+    if(el.closest('#assets,#crops,#fixed,#manualTbl'))return;
+    const k=el.dataset.k, v=getP(S,k);
+    if(el.type==='checkbox') el.checked=!!v;
+    else if(el.dataset.pct) el.value=v==null?'':+(v*100).toFixed(4);
+    else el.value=v??'';
+  });
+  document.querySelectorAll('[data-cur]').forEach(e=>e.textContent='('+S.cur+')');
+  document.querySelectorAll('[data-cur-m3]').forEach(e=>e.textContent='('+S.cur+' por m³)');
+  document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===S.opMode)));
+  $('opCultivos').hidden=S.opMode!=='cultivos'; $('opManual').hidden=S.opMode!=='manual';
+  $('waterGrid').style.opacity=S.water.on?1:.45; $('loanGrid').style.opacity=S.loan.on?1:.45;
+}
+function renderAssets(){
+  $('assets').innerHTML=S.assets.map((a,i)=>`
+   <div class="item">
+    <div class="hd"><input id="a_n_${a.id}" data-k="assets.${i}.name" value="${esc(a.name)}" aria-label="Nombre del activo">
+      <button class="btn ghost" data-del="assets.${i}" aria-label="Quitar ${esc(a.name)}">Quitar</button></div>
+    <div class="grid">
+      <label class="f">Tipo<select id="a_t_${a.id}" data-k="assets.${i}.type" data-rerender="assets">
+        <option value="depreciable"${a.type==='depreciable'?' selected':''}>Depreciable</option>
+        <option value="terreno"${a.type==='terreno'?' selected':''}>Terreno (no se deprecia)</option>
+        <option value="intangible"${a.type==='intangible'?' selected':''}>Intangible (se amortiza)</option></select></label>
+      <label class="f">Costo <span class="u">(${esc(S.cur)})</span><input id="a_c_${a.id}" data-k="assets.${i}.cost" type="number" step="1000" inputmode="decimal" value="${a.cost}"></label>
+      <label class="f">Año de desembolso<input id="a_y_${a.id}" data-k="assets.${i}.year" type="number" min="0" step="1" inputmode="numeric" value="${a.year||0}"></label>
+      ${a.type==='terreno'?'':`<label class="f">${a.type==='intangible'?'Años de amortización':'Vida útil <span class="u">(años)</span>'}<input id="a_l_${a.id}" data-k="assets.${i}.life" type="number" min="1" step="1" inputmode="numeric" value="${a.life}"></label>`}
+      ${a.type==='depreciable'?`<label class="f">Valor residual <span class="u">(% al fin de vida)</span><input id="a_v_${a.id}" data-k="assets.${i}.vr" data-pct="1" type="number" step="1" inputmode="decimal" value="${+(a.vr*100).toFixed(4)}"></label>`:''}
+    </div>
+    <div class="note" id="a_info_${i}"></div>
+   </div>`).join('');
+}
+function renderCrops(){
+  $('crops').innerHTML=S.crops.length?S.crops.map((c,i)=>`
+   <div class="item">
+    <div class="hd"><input id="c_n_${c.id}" data-k="crops.${i}.name" value="${esc(c.name)}" aria-label="Nombre del cultivo">
+      <span class="tag">${c.kind==='perenne'?'Perenne':'Anual'}</span>
+      <button class="btn ghost" data-del="crops.${i}" aria-label="Quitar ${esc(c.name)}">Quitar</button></div>
+    <div class="grid">
+      <label class="f">Tipo<select id="c_k_${c.id}" data-k="crops.${i}.kind" data-rerender="crops">
+        <option value="anual"${c.kind==='anual'?' selected':''}>Anual / transitorio</option>
+        <option value="perenne"${c.kind==='perenne'?' selected':''}>Perenne (frutal, forestal)</option></select></label>
+      <label class="f">Área <span class="u">(ha)</span><input id="c_a_${c.id}" data-k="crops.${i}.area" type="number" step="0.5" inputmode="decimal" value="${c.area}"></label>
+      <label class="f">Rendimiento${c.kind==='perenne'?' pleno':''} <span class="u">(${esc(c.unit||'t')}/ha${c.kind==='anual'?'/campaña':''})</span><input id="c_y_${c.id}" data-k="crops.${i}.yield" type="number" step="0.1" inputmode="decimal" value="${c.yield}"></label>
+      <label class="f">Precio en chacra <span class="u">(${esc(S.cur)} por ${esc(c.unit||'t')})</span><input id="c_p_${c.id}" data-k="crops.${i}.price" type="number" step="10" inputmode="decimal" value="${c.price}"></label>
+      <label class="f">Costo de producción <span class="u">(${esc(S.cur)} por ha${c.kind==='anual'?' y campaña':' al año'})</span><input id="c_c_${c.id}" data-k="crops.${i}.costHa" type="number" step="100" inputmode="decimal" value="${c.costHa}"></label>
+      ${c.kind==='anual'?`<label class="f">Campañas por año<input id="c_cp_${c.id}" data-k="crops.${i}.campaigns" type="number" min="1" max="4" step="1" inputmode="numeric" value="${c.campaigns}"></label>`:`
+      <label class="f">Años sin cosecha<input id="c_np_${c.id}" data-k="crops.${i}.yearsNoProd" type="number" min="0" step="1" inputmode="numeric" value="${c.yearsNoProd}"></label>
+      <label class="f">Año de plena producción<input id="c_fu_${c.id}" data-k="crops.${i}.yearsToFull" type="number" min="1" step="1" inputmode="numeric" value="${c.yearsToFull}"></label>
+      <label class="f">Costo sin cosecha <span class="u">(% del costo)</span><input id="c_cn_${c.id}" data-k="crops.${i}.costNoProd" data-pct="1" type="number" step="5" inputmode="decimal" value="${+(c.costNoProd*100).toFixed(4)}"></label>`}
+    </div>
+    ${c.kind==='perenne'?`<div class="note" id="c_curve_${i}"></div>`:''}
+   </div>`).join(''):'<p class="note">Sin cultivos. Agrega uno para calcular los ingresos.</p>';
+}
+function renderFixed(){
+  $('fixed').innerHTML=S.fixedCosts.map((f,i)=>`
+   <div class="row" style="margin-bottom:8px;flex-wrap:nowrap">
+    <input id="f_n_${f.id}" data-k="fixedCosts.${i}.name" value="${esc(f.name)}" aria-label="Concepto" style="flex:2">
+    <input id="f_a_${f.id}" data-k="fixedCosts.${i}.amount" type="number" step="1000" inputmode="decimal" value="${f.amount}" aria-label="Monto anual" style="flex:1">
+    <button class="btn ghost" data-del="fixedCosts.${i}" aria-label="Quitar">✕</button></div>`).join('');
+}
+function renderManual(){
+  fitManual();
+  let h='<table><thead><tr><th>Año</th><th>Ingresos (Y)</th><th>Egresos (G)</th></tr></thead><tbody>';
+  for(let k=0;k<S.N;k++) h+=`<tr><td>${k+1}</td><td><input id="m_y_${k}" data-k="manual.Y.${k}" type="number" step="1000" inputmode="decimal" value="${S.manual.Y[k]}" aria-label="Ingreso año ${k+1}"></td><td><input id="m_g_${k}" data-k="manual.G.${k}" type="number" step="1000" inputmode="decimal" value="${S.manual.G[k]}" aria-label="Egreso año ${k+1}"></td></tr>`;
+  $('manualTbl').innerHTML=h+'</tbody></table>';
+}
+function renderForms(){ bindStatic(); renderAssets(); renderCrops(); renderFixed(); renderManual(); $('hdrName').textContent=S.name; }
+
+/* ===== Tablas de resultados ===== */
+function rowHTML(label,arr,cls){return `<tr class="${cls||''}"><td>${label}</td>${arr.map(v=>`<td class="${v<0?'neg':''}">${v===''||v==null?'':fm(v)}</td>`).join('')}</tr>`}
+function head(N,from0){let h='<thead><tr><th>Concepto</th>';for(let k=from0?0:1;k<=N;k++)h+=`<th>${k}</th>`;return h+'</tr></thead>'}
+function kpi(l,v,s,ok){return `<div class="kpi ${ok===true?'ok':ok===false?'no':''}"><span class="l">${l}</span><span class="v">${v}</span>${s?`<span class="s">${s}</span>`:''}</div>`}
+
+function renderResults(R){
+  const N=R.N, cur=S.cur, e=R.econ, f=R.fin;
+  // chips
+  let c=`<span class="chip ${e.van>=0?'ok':'no'}">VANE <b>${fm(e.van)}</b></span>`;
+  if(f) c+=`<span class="chip ${f.van>=0?'ok':'no'}">VANF <b>${fm(f.van)}</b></span>`;
+  $('chips').innerHTML=c;
+  // veredicto
+  let vcls,vt;
+  if(e.van>=0){vcls='ok';vt=`<b>Rentable sin préstamo.</b> TIRE ${fp(e.tir)} supera el Ko de ${fp(S.Ko)}.`+(f?(f.tir>e.tir?` El préstamo mejora la rentabilidad (TIRF ${fp(f.tir)}): efecto palanca positivo.`:` El préstamo no mejora la rentabilidad (TIRF ${fp(f.tir)} ≤ TIRE).`):'');}
+  else if(f&&f.van>=0){vcls='mid';vt=`<b>Rentable solo con préstamo.</b> TIRE ${fp(e.tir)} < Ko ${fp(S.Ko)} < TIRF ${fp(f.tir)}. El financiamiento vuelve viable el proyecto.`;}
+  else {vcls='no';vt=`<b>No rentable con estos datos.</b> TIRE ${fp(e.tir)}${f?`, TIRF ${fp(f.tir)}`:''} frente a Ko ${fp(S.Ko)}.`;}
+  $('verdict').innerHTML=`<div class="verdict ${vcls}">${vt}</div>`;
+  const prTxt=v=>isFinite(v)?v.toFixed(2)+' años':`> ${N} años`;
+  $('kpiE').innerHTML=kpi('VANE ('+cur+')',fm(e.van),e.van>=0?'VAN ≥ 0: se acepta':'VAN < 0: se rechaza',e.van>=0)+
+    kpi('TIRE',fp(e.tir),e.tir>=S.Ko?'Mayor que Ko':'Menor que Ko',e.tir>=S.Ko)+
+    kpi('Relación B/C',f4(e.bc),e.bc>=1?'B/C ≥ 1':'B/C < 1',e.bc>=1)+
+    kpi('Índice de rendimiento',f4(e.ir),e.ir>=1?'IR ≥ 1':'IR < 1',e.ir>=1)+
+    kpi('Periodo de recupero',prTxt(e.pr),'VAN acumulado (Cuadro 3.4)')+
+    kpi('TER',fp(e.ter),e.ter>=S.Ko?'Mayor que Ko':'Menor que Ko',e.ter>=S.Ko)+
+    kpi('IEA ('+cur+' por año)',fm(e.iea),'VAN como anualidad',e.iea>=0)+
+    kpi('Inversión total ('+cur+')',fm(R.invTot),'Recupero año '+N+': '+fm(R.rec));
+  const fShow=!!f; $('hFin').hidden=!fShow; $('kpiF').hidden=!fShow; $('hFcF').hidden=!fShow; $('fcF').hidden=!fShow;
+  if(f){
+    $('kpiF').innerHTML=kpi('VANF ('+cur+')',fm(f.van),f.van>=0?'VAN ≥ 0: se acepta':'VAN < 0: se rechaza',f.van>=0)+
+      kpi('TIRF',fp(f.tir),f.tir>=e.tir?'Mayor que TIRE: palanca +':'Menor que TIRE: palanca −',f.tir>=e.tir)+
+      kpi('B/C financiera',f4(f.bc),f.bc>=1?'B/C ≥ 1':'B/C < 1',f.bc>=1)+
+      kpi('IR financiero',f4(f.ir),'Sobre aporte propio',f.ir>=1)+
+      kpi('Periodo de recupero',prTxt(f.pr),'Flujo financiero')+
+      kpi('TER financiera',fp(f.ter),f.ter>=S.Ko?'Mayor que Ko':'Menor que Ko',f.ter>=S.Ko)+
+      kpi('IEA financiero ('+cur+' por año)',fm(f.iea),'VANF como anualidad',f.iea>=0)+
+      kpi('Punto de Fisher',fp(f.fisher),'Tasa donde VANE = VANF')+
+      kpi('Aporte propio ('+cur+')',fm(f.eq),'Préstamo: '+fm(+S.loan.amount));
+  }
+  // flujos
+  const Dneg=R.D.map(v=>-v), Gneg=R.G.map(v=>-v);
+  $('fcE').innerHTML='<table>'+head(N,true)+'<tbody>'+
+    rowHTML('Ingresos (Y)',['',...R.Y])+rowHTML('Egresos (G)',['',...Gneg])+rowHTML('Depreciación (D)',['',...Dneg])+
+    rowHTML('Utilidad de operación',['',...R.U],'tot')+rowHTML('Impuesto',['',...R.T.map(v=>-v)])+
+    rowHTML('+ Depreciación',['',...R.D])+rowHTML('Flujo neto operativo',['',...R.FNO],'tot')+
+    rowHTML('Flujo de capitales',R.capE)+rowHTML('Flujo neto económico',e.flow,'tot')+'</tbody></table>';
+  if(f){
+    $('fcF').innerHTML='<table>'+head(N,true)+'<tbody>'+
+      rowHTML('Ingresos (Y)',['',...R.Y])+rowHTML('Egresos (G)',['',...Gneg])+rowHTML('Depreciación (D)',['',...Dneg])+
+      rowHTML('Intereses (I)',['',...f.I.map(v=>-v)])+rowHTML('Utilidad antes de impuesto',['',...f.UF],'tot')+
+      rowHTML('Impuesto',['',...f.TF.map(v=>-v)])+rowHTML('+ Depreciación',['',...R.D])+rowHTML('Amortización de deuda',['',...f.AM.map(v=>-v)])+
+      rowHTML('Flujo neto operativo financiero',['',...f.FNOF],'tot')+rowHTML('Flujo de capitales financiero',f.cap)+
+      rowHTML('Flujo neto financiero',f.flow,'tot')+'</tbody></table>';
+  }
+  // depreciación
+  let dh='<table><thead><tr><th>Activo</th><th>Costo</th><th>Dep./año</th><th>Años</th><th>Recupero</th></tr></thead><tbody>';
+  R.dep.forEach(d=>dh+=`<tr><td>${esc(d.name)}</td><td>${fm(d.cost)}</td><td>${d.type==='terreno'?'—':fm(d.d)}</td><td>${d.type==='terreno'?'—':d.yrs}</td><td>${fm(d.vr)}</td></tr>`);
+  dh+=`<tr><td>Capital de trabajo</td><td>${fm(R.ct)}</td><td>—</td><td>—</td><td>${fm(R.ctRec)}</td></tr>`;
+  dh+=`<tr class="tot"><td>Total</td><td>${fm(R.inv0)}</td><td></td><td></td><td>${fm(R.rec)}</td></tr></tbody></table>`;
+  $('depTbl').innerHTML=dh;
+  // info en tarjetas de activos
+  R.dep.forEach((d,i)=>{const el=$('a_info_'+i); if(el) el.textContent=d.type==='terreno'?`Se recupera completo en el año ${N}: ${fm(d.vr)}`:(d.yrs?`${d.type==='intangible'?'Amortización':'Depreciación'} ${fm(d.d)}/año, del año ${d.start} al ${d.start+d.yrs-1} · recupero en el año ${N}: ${fm(d.vr)}`:'No llega a depreciarse dentro del horizonte.');});
+  // curvas de perennes
+  S.crops.forEach((cr,i)=>{const el=$('c_curve_'+i); if(el){const fs=[];for(let k=1;k<=N;k++)fs.push(Math.round(cropYieldFactor(cr,k)*100)+'%');el.textContent='Producción por año: '+fs.join(' · ');}});
+  // resumen operación
+  if(S.opMode==='cultivos'){
+    let oh='<table>'+head(N,false)+'<tbody>';
+    R.op.byCrop.forEach(b=>{oh+=rowHTML(esc(b.name)+' — producción ('+(S.crops.find(c=>c.name===b.name)?.unit||'t')+')',b.prod)+rowHTML(esc(b.name)+' — ingreso',b.y);});
+    oh+=rowHTML('Ingresos totales',R.op.Y,'tot');
+    R.op.byCrop.forEach(b=>oh+=rowHTML(esc(b.name)+' — costo',b.g.map(v=>-v)));
+    if(S.water.on) oh+=rowHTML('Agua de riego',R.op.water.map(v=>-v));
+    if(R.op.fixed.some(v=>v)) oh+=rowHTML('Egresos fijos',R.op.fixed.map(v=>-v));
+    oh+=rowHTML('Egresos totales',R.op.G.map(v=>-v),'tot')+'</tbody></table>';
+    $('opSummary').innerHTML=oh;
+    const vol=waterVolPerHa(S.water);
+    $('waterInfo').textContent=S.water.on?`Volumen bruto: ${fm(vol)} m³/ha/año · costo ${fm(vol*(+S.water.tarifa||0))} ${S.cur}/ha/año`:'';
+  }
+  // préstamo
+  const L=R.loan;
+  $('loanKpis').innerHTML=kpi('Tasa efectiva',fp(L.ieff))+kpi('Tasa aplicada',fp(L.i),S.loan.useReal?'Real (sin inflación)':'Efectiva')+kpi('Cuota anual ('+cur+')',fm(L.A))+kpi('Costo neto de la deuda',fp(L.i*(1-S.t)),'i × (1 − t)');
+  let th='<table><thead><tr><th>Año</th><th>Saldo inicial</th><th>Interés</th><th>Amortización</th><th>Cuota</th><th>Saldo final</th></tr></thead><tbody>';
+  L.rows.forEach(r=>th+=`<tr><td>${r.k}${r.grace?' (gracia)':''}</td><td>${fm(r.ini)}</td><td>${fm(r.int)}</td><td>${fm(r.am)}</td><td>${fm(r.paid)}</td><td>${fm(Math.abs(r.fin)<0.5?0:r.fin)}</td></tr>`);
+  th+=`<tr class="tot"><td>Total</td><td></td><td>${fm(L.rows.reduce((a,r)=>a+r.int,0))}</td><td>${fm(L.rows.reduce((a,r)=>a+Math.max(0,r.am),0))}</td><td>${fm(L.rows.reduce((a,r)=>a+r.paid,0))}</td><td></td></tr></tbody></table>`;
+  if(L.n>N) th+=`<p class="note" style="padding:8px">El plazo (${L.n} años) excede el horizonte (${N}); las cuotas posteriores no entran al flujo.</p>`;
+  $('debtTbl').innerHTML=th;
+  renderChart(R); renderSens();
+}
+
+function renderChart(R){
+  const e=R.econ.flow, f=R.fin?R.fin.flow:null, rates=[]; for(let r=0;r<=0.6001;r+=0.01)rates.push(r);
+  const ve=rates.map(r=>npv(r,e)), vf=f?rates.map(r=>npv(r,f)):[];
+  const all=[...ve,...vf,0]; let lo=Math.min(...all), hi=Math.max(...all); const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
+  const W=360,H=210,L=52,Rm=10,T=10,B=28, x=r=>L+(r/0.6)*(W-L-Rm), y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const path=a=>a.map((v,i)=>(i?'L':'M')+x(rates[i]).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const step=niceStep((hi-lo)/4); let g='';
+  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){g+=`<line x1="${L}" x2="${W-Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${Math.abs(v)<step/1e6?1.4:0.6}"/><text x="${L-5}" y="${y(v)+3.5}" text-anchor="end" font-size="9.5" fill="var(--muted)">${short(v)}</text>`;}
+  for(let r=0;r<=0.6001;r+=0.1)g+=`<text x="${x(r)}" y="${H-10}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${Math.round(r*100)}%</text>`;
+  const ko=S.Ko; g+=`<line x1="${x(ko)}" x2="${x(ko)}" y1="${T}" y2="${H-B}" stroke="var(--maize)" stroke-dasharray="3 3" stroke-width="1.2"/><text x="${x(ko)+4}" y="${T+10}" font-size="9.5" fill="var(--maize)">Ko</text>`;
+  g+=`<line x1="${L}" x2="${W-Rm}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink)" stroke-width="0.8" opacity=".5"/>`;
+  g+=`<path d="${path(ve)}" fill="none" stroke="var(--field)" stroke-width="2.2"/>`;
+  if(f) g+=`<path d="${path(vf)}" fill="none" stroke="var(--maize)" stroke-width="2.2"/>`;
+  const dot=(r,c)=>isFinite(r)&&r>=0&&r<=0.6?`<circle cx="${x(r)}" cy="${y(0)}" r="3.5" fill="${c}" stroke="var(--surface)" stroke-width="1.5"/>`:'';
+  g+=dot(R.econ.tir,'var(--field)'); if(f) g+=dot(R.fin.tir,'var(--maize)');
+  if(f&&isFinite(R.fin.fisher)&&R.fin.fisher>=0&&R.fin.fisher<=0.6){const fv=npv(R.fin.fisher,e);g+=`<circle cx="${x(R.fin.fisher)}" cy="${y(fv)}" r="4" fill="none" stroke="var(--ink)" stroke-width="1.4"/><text x="${x(R.fin.fisher)+6}" y="${y(fv)-6}" font-size="9.5" fill="var(--ink)">Fisher</text>`;}
+  $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="VAN económico${f?' y financiero':''} según tasa de descuento de 0 a 60%">${g}</svg>`;
+  $('legend').innerHTML=`<span><i style="background:var(--field)"></i>VANE (TIRE ${fp(R.econ.tir)})</span>`+(f?`<span><i style="background:var(--maize)"></i>VANF (TIRF ${fp(R.fin.tir)})</span>`:'')+`<span><i style="background:var(--maize);height:1px"></i>Ko ${fp(S.Ko)}</span>`;
+}
+function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x)));const m=x/p;return (m<1.5?1:m<3?2:m<7?5:10)*p}
+function short(v){const a=Math.abs(v);if(a>=1e6)return (v/1e6).toFixed(a>=1e7?0:1)+' M';if(a>=1e3)return Math.round(v/1e3)+' k';return Math.round(v)}
+
+function renderSens(){
+  const y=+$('s_y').value,g=+$('s_g').value,i=+$('s_i').value;
+  $('o_y').textContent=(y>0?'+':'')+y+'%'; $('o_g').textContent=(g>0?'+':'')+g+'%'; $('o_i').textContent=(i>0?'+':'')+i+'%';
+  const R=evaluate(S,{y:1+y/100,g:1+g/100,i:1+i/100});
+  $('kpiS').innerHTML=kpi('VANE',fm(R.econ.van),'TIRE '+fp(R.econ.tir),R.econ.van>=0)+(R.fin?kpi('VANF',fm(R.fin.van),'TIRF '+fp(R.fin.tir),R.fin.van>=0):'');
+  const steps=[-50,-20,-10,0,10,20,50];
+  let h='<table><thead><tr><th>VANE ante cambio de</th>'+steps.map(s=>`<th>${s>0?'+':''}${s}%</th>`).join('')+'</tr></thead><tbody>';
+  for(const [lab,key] of [['Ingresos','y'],['Egresos','g'],['Inversión','i']]){
+    h+=`<tr><td>${lab}</td>`+steps.map(s=>{const m={y:1,g:1,i:1};m[key]=1+s/100;const v=evaluate(S,m).econ.van;return `<td class="${v<0?'neg':''}">${fm(v)}</td>`}).join('')+'</tr>';
+  }
+  $('sensTbl').innerHTML=h+'</tbody></table>';
+  const hasF=!!evaluate(S).fin, cp=v=>isFinite(v)?((v>0?'+':'')+(v*100).toFixed(1)+'%'):'—';
+  let c='<table><thead><tr><th>Valor crítico (VAN = 0)</th><th>VANE</th>'+(hasF?'<th>VANF</th>':'')+'</tr></thead><tbody>';
+  for(const [lab,key] of [['Ingresos','y'],['Egresos','g'],['Inversión','i']]) c+=`<tr><td>${lab}</td><td>${cp(critical(S,key,'E'))}</td>${hasF?`<td>${cp(critical(S,key,'F'))}</td>`:''}</tr>`;
+  $('critTbl').innerHTML=c+'</tbody></table>';
+  const sc=[['Muy pesimista',-20,20,20],['Pesimista',-10,10,10],['Normal',0,0,0],['Optimista',10,-10,-10],['Muy optimista',20,-20,-20]];
+  let t='<table><thead><tr><th>Escenario <span style="font-weight:400">(Y / G / I)</span></th><th>VANE</th><th>TIRE</th>'+(hasF?'<th>VANF</th><th>TIRF</th>':'')+'</tr></thead><tbody>';
+  sc.forEach(([n,a,b,c2])=>{const Rr=evaluate(S,{y:1+a/100,g:1+b/100,i:1+c2/100});t+=`<tr${a===0?' class="tot"':''}><td>${n} <span class="hint">${a>0?'+':''}${a} / ${b>0?'+':''}${b} / ${c2>0?'+':''}${c2}%</span></td><td class="${Rr.econ.van<0?'neg':''}">${fm(Rr.econ.van)}</td><td>${fp(Rr.econ.tir)}</td>${hasF?`<td class="${Rr.fin.van<0?'neg':''}">${fm(Rr.fin.van)}</td><td>${fp(Rr.fin.tir)}</td>`:''}</tr>`;});
+  $('scenTbl').innerHTML=t+'</tbody></table>';
+}
+
+/* ===== Eventos ===== */
+function horizonHint(){
+  const per=S.opMode==='cultivos'?S.crops.filter(c=>c.kind==='perenne'):[];
+  let msg='';
+  if(per.length){const need=Math.max(...per.map(c=>(+c.yearsToFull||1)+(+S.opStart||1)-1)); msg=need>=S.N-2?`El horizonte (${S.N} años) apenas cubre la estabilización de los perennes (año ${need}). El libro recomienda horizontes de 15 años o más en frutales y de 20 o más en forestales (p. 5).`:`Horizonte de ${S.N} años; los perennes se estabilizan en el año ${need}. El libro recomienda 15 años o más en frutales (p. 5).`;}
+  $('horizonHint').textContent=msg;
+}
+function recalc(){ save(); $('hdrName').textContent=S.name; horizonHint(); renderResults(evaluate(S)); }
+document.addEventListener('input',ev=>{
+  const el=ev.target; if(el.id&&el.id.startsWith('s_')){renderSens();return;}
+  const k=el.dataset.k; if(!k)return;
+  let v;
+  if(el.type==='checkbox') v=el.checked;
+  else if(el.type==='number'||el.tagName==='SELECT'&&/^\d+$/.test(el.value)){ v=el.value===''?0:parseFloat(el.value); if(el.dataset.pct)v=v/100; }
+  else v=el.value;
+  setP(S,k,v);
+  if(k==='N'){ S.N=Math.max(2,Math.min(30,Math.round(v)||2)); renderManual(); }
+  if(k==='opStart'){ S.opStart=Math.max(1,Math.round(v)||1); }
+  if(k==='cur'){ bindStatic(); renderAssets(); renderCrops(); }
+  if(k==='water.on'||k==='loan.on') bindStatic();
+  if(el.dataset.rerender==='assets') renderAssets();
+  if(el.dataset.rerender==='crops') renderCrops();
+  recalc();
+});
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b)return;
+  if(b.dataset.tab){ showTab(b.dataset.tab); return; }
+  if(b.dataset.mode){ S.opMode=b.dataset.mode; if(S.opMode==='manual'){ const R=operations({...S,opMode:'cultivos'}); if(!S.manual.Y.some(v=>v)){S.manual.Y=R.Y.map(Math.round);S.manual.G=R.G.map(Math.round);} renderManual(); } bindStatic(); recalc(); return; }
+  if(b.dataset.del){ const [arr,i]=b.dataset.del.split('.'); S[arr].splice(+i,1); renderForms(); recalc(); return; }
+  if(b.dataset.load){ const box=$('confirmLoad'); box.hidden=false; box.innerHTML=`Esto reemplaza el proyecto actual. <button class="btn pri" id="okLoad" data-ok="${b.dataset.load}">Cargar ejemplo</button> <button class="btn" id="noLoad">Cancelar</button>`; return; }
+  if(b.dataset.ok){ S=EXAMPLES[b.dataset.ok](); $('confirmLoad').hidden=true; resetSliders(); renderForms(); recalc(); showTab('resultados'); return; }
+  if(b.id==='noLoad'){ $('confirmLoad').hidden=true; return; }
+  if(b.id==='addAsset'){ S.assets.push({id:uid(),name:'Nuevo activo',type:'depreciable',cost:0,life:10,vr:0.1}); renderAssets(); recalc(); return; }
+  if(b.id==='addCrop'){ S.crops.push({id:uid(),name:'Nuevo cultivo',kind:'anual',area:1,yield:0,price:0,costHa:0,campaigns:1,yearsNoProd:0,yearsToFull:1,costNoProd:1,unit:'t'}); renderCrops(); recalc(); return; }
+  if(b.id==='addFixed'){ S.fixedCosts.push({id:uid(),name:'Nuevo egreso',amount:0}); renderFixed(); recalc(); return; }
+  if(b.id==='sReset'){ resetSliders(); renderSens(); return; }
+  if(b.id==='btnCopy'){ const txt=JSON.stringify(S); $('jsonBox').value=txt;
+    const ok=()=>$('copyMsg').textContent='Copiado.'; const fail=()=>{$('jsonBox').select();$('copyMsg').textContent='Texto seleccionado: cópialo con el menú.';};
+    try{ navigator.clipboard.writeText(txt).then(ok,fail);}catch(e){fail();} return; }
+  if(b.id==='btnPaste'){ try{ const o=JSON.parse($('jsonBox').value); if(!o.assets||!o.N) throw 0; S=o; renderForms(); recalc(); $('copyMsg').textContent='Proyecto cargado.'; }catch(e){ $('copyMsg').textContent='El texto no es un proyecto válido.'; } return; }
+});
+function resetSliders(){ ['s_y','s_g','s_i'].forEach(id=>$(id).value=0); }
+function showTab(t){
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
+  document.querySelectorAll('main > section').forEach(s=>s.hidden=s.id!=='tab-'+t);
+  try{localStorage.setItem(KEY+'-tab',t)}catch(e){}
+  window.scrollTo({top:0});
+}
+renderForms(); recalc();
+let startTab='resultados'; try{startTab=localStorage.getItem(KEY+'-tab')||'resultados'}catch(e){}
+showTab(startTab);
+</script>
+
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
+</body>
+</html>
